@@ -1,0 +1,15 @@
+# build output
+bin/
+obj/
+dist/
+build/
+*.user
+.vs/
+
+# the game's decompiled source and other people's cloned mods never go in the repo
+decompiled/
+reference/
+
+# never publish Claude / vault material
+.claude/
+CLAUDE.md

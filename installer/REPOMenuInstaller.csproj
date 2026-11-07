@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- .NET Framework 4.8 ships with Windows 10 and 11, so the exe runs without installing anything. -->
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Two editions from the same code: Offline (the mod's files inside the exe, the default) and
+         Online (dotnet build -p:Edition=Online: downloads the latest release's files from GitHub at
+         every Install / Update). -->
+    <Edition Condition="'$(Edition)' == ''">Offline</Edition>
+    <AssemblyName>REPOMenu-$(Edition)-Installer</AssemblyName>
+    <RootNamespace>REPOMenuInstaller</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>REPOMenu</Product>
+    <Company>REPOMenu contributors</Company>
+    <Copyright>MIT License, REPOMenu contributors</Copyright>
+    <Description>Installs BepInEx and the REPOMenu mod into R.E.P.O.</Description>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <GenerateSupportedRuntime>false</GenerateSupportedRuntime>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <IntermediateOutputPath>obj\$(Configuration)-$(Edition)\</IntermediateOutputPath>
+    <DefineConstants Condition="'$(Edition)' == 'Online'">$(DefineConstants);ONLINE</DefineConstants>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <OutputPath>..\dist\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <OutputPath>..\build\debug\</OutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Web.Extensions" Condition="'$(Edition)' == 'Online'" />
+  </ItemGroup>
+
+  <!-- Built by tools/make_payload.py: BepInEx 5.4.23.6 + REPOMenu.dll. The online edition carries
+       none: it downloads the same zip from the latest GitHub release. -->
+  <ItemGroup Condition="'$(Edition)' != 'Online'">
+    <EmbeddedResource Include="..\build\payload.zip" LogicalName="payload.zip" />
+  </ItemGroup>
+
+  <Target Name="CheckPayload" BeforeTargets="BeforeBuild" Condition="'$(Edition)' != 'Online'">
+    <Error Condition="!Exists('..\build\payload.zip')" Text="build\payload.zip is missing. Run: python tools\make_payload.py" />
+  </Target>
+
+</Project>
