@@ -95,15 +95,62 @@ namespace REPOMenu.Features
 
         // ---------------------------------------------------------------- extraction goal
 
+        // The point the player is using right now. The game stores it in
+        // RoundDirector.extractionPointCurrent, but some of the game's own calls (unlocking every
+        // point, finishing one) clear that pointer while the point is still live in the world, so
+        // when it is null we fall back to the point whose own state says it is in use.
+        internal static ExtractionPoint ActiveExtraction()
+        {
+            if (!RoundDirector.instance)
+            {
+                return null;
+            }
+
+            var current = RoundDirector.instance.extractionPointCurrent;
+
+            if (current)
+            {
+                return current;
+            }
+
+            ExtractionPoint best = null;
+
+            foreach (var e in WorldCache.Extractions)
+            {
+                if (!e)
+                {
+                    continue;
+                }
+
+                var s = e.currentState;
+
+                // "in use" = anything past Idle and not finished: a point waiting at Idle or already
+                // Complete is not the one to act on
+                if (s == ExtractionPoint.State.Active || s == ExtractionPoint.State.Warning ||
+                    s == ExtractionPoint.State.Success || s == ExtractionPoint.State.Extracting ||
+                    s == ExtractionPoint.State.Surplus || s == ExtractionPoint.State.TaxReturn)
+                {
+                    // prefer one still collecting (Active) over one already extracting
+                    if (best == null || s == ExtractionPoint.State.Active)
+                    {
+                        best = e;
+                    }
+                }
+            }
+
+            return best;
+        }
+
         private static void GoalBody()
         {
-            var ep = RoundDirector.instance ? RoundDirector.instance.extractionPointCurrent : null;
+            var ep = ActiveExtraction();
 
             GUILayout.BeginHorizontal();
 
             if (Ui.Button("Unlock every extraction point", 220))
             {
-                // the game's own call that opens all points once the first is done
+                // the game's own call that opens all points once the first is done. Note it clears
+                // RoundDirector.extractionPointCurrent, so we find the active one by its state below.
                 RoundDirector.instance.ExtractionPointsUnlock();
                 Toasts.Show("Extraction points unlocked");
             }
@@ -111,7 +158,7 @@ namespace REPOMenu.Features
             var was = GUI.enabled;
             GUI.enabled = was && ep && ep.currentState == ExtractionPoint.State.Active;
 
-            if (Ui.Button("Extract the active one now", 210, Theme.ButtonAccent) && ep)
+            if (Ui.Button("Extract the active one now", 210, Theme.ButtonAccent) && ep && ep.currentState == ExtractionPoint.State.Active)
             {
                 // what the game does when a point is finished early: mark it done, start extracting
                 ep.isCompletedRightAway = true;
@@ -125,7 +172,7 @@ namespace REPOMenu.Features
 
             if (!ep)
             {
-                GUILayout.Label("No extraction point is active yet.", Theme.LabelSubtle);
+                GUILayout.Label("No extraction point is active. Walk up to one and press its button, or activate it in game, then come back.", Theme.LabelSubtle);
                 return;
             }
 

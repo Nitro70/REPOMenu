@@ -17,6 +17,7 @@ namespace REPOMenu.Features
         private static string selectedId;
         private static float healAt, aggroAt;
         private static readonly HashSet<string> addedNoVision = new();
+        private static readonly Dictionary<string, string> upgradeEdits = new();
 
         private static string NeedWorld() => Game.InWorld ? null : "Load into a level first";
 
@@ -153,15 +154,53 @@ namespace REPOMenu.Features
                 return;
             }
 
+            GUILayout.Label("Click a number and type the level you want, then press Enter. Or nudge with the buttons.", Theme.LabelSmall);
+
             foreach (var up in ups)
             {
+                int current = Catalog.UpgradeLevel(up, p.steamID);
+                string field = "up:" + up;
+                bool editing = GUI.GetNameOfFocusedControl() == field;
+
+                // while you are not in the box it shows the live level; while you are, it keeps what
+                // you type (so the live value doesn't overwrite you mid-edit)
+                if (!editing)
+                {
+                    upgradeEdits[up] = current.ToString();
+                }
+                else if (!upgradeEdits.ContainsKey(up))
+                {
+                    upgradeEdits[up] = current.ToString();
+                }
+
                 GUILayout.BeginHorizontal();
                 GUILayout.Label(Pretty(up), Theme.Label, GUILayout.Width(170));
-                GUILayout.Label(Catalog.UpgradeLevel(up, p.steamID).ToString(), Theme.LabelSubtle, GUILayout.Width(40));
+
+                GUI.SetNextControlName(field);
+                upgradeEdits[up] = GUILayout.TextField(upgradeEdits[up], Theme.Field1, GUILayout.Width(56));
+
+                // Enter in the focused box sets that exact level (one step, up or down)
+                var ev = Event.current;
+                if (editing && ev.type == EventType.KeyDown && (ev.keyCode == KeyCode.Return || ev.keyCode == KeyCode.KeypadEnter))
+                {
+                    if (int.TryParse(upgradeEdits[up], out int target))
+                    {
+                        SetUpgrade(p, up, target, current);
+                    }
+
+                    GUI.FocusControl(null);
+                    ev.Use();
+                }
+
+                if (Ui.Small("Set", 42) && int.TryParse(upgradeEdits[up], out int typed))
+                {
+                    SetUpgrade(p, up, typed, current);
+                    GUI.FocusControl(null);
+                }
 
                 foreach (var step in new[] { -1, 1, 5, 10 })
                 {
-                    if (Ui.Small(step > 0 ? "+" + step : step.ToString(), 44))
+                    if (Ui.Small(step > 0 ? "+" + step : step.ToString(), 40))
                     {
                         Upgrade(p, up, step);
                     }
@@ -169,6 +208,19 @@ namespace REPOMenu.Features
 
                 GUILayout.FlexibleSpace();
                 GUILayout.EndHorizontal();
+            }
+        }
+
+        // Moves an upgrade straight to the level you typed, up or down, in one go.
+        private static void SetUpgrade(PlayerAvatar p, string up, int target, int current)
+        {
+            target = Mathf.Clamp(target, 0, 10000);
+            int delta = target - current;
+
+            if (delta != 0)
+            {
+                Upgrade(p, up, delta);
+                Toasts.Show($"{Pretty(up)}: {target}");
             }
         }
 
